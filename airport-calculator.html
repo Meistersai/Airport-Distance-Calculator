@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airport Distance Calculator</title>
+    
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Load React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- 3. Load Babel to handle JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Custom scrollbar for better look in SharePoint iframes */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="root" class="flex items-center justify-center min-h-screen text-gray-500">
+        <div class="text-center">
+            <p class="text-lg font-semibold">Loading App...</p>
+            <p class="text-sm">If this doesn't load in a few seconds, check your connection or SharePoint permissions.</p>
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- DEFAULT DATABASE ---
+        const DEFAULT_AIRPORT_DB = {
+            "ATL": { "lat": 33.6407, "lon": -84.4277, "name": "Hartsfield-Jackson Atlanta Intl" },
+            "PEK": { "lat": 40.0799, "lon": 116.6031, "name": "Beijing Capital Intl" },
+            "LAX": { "lat": 33.9416, "lon": -118.4085, "name": "Los Angeles Intl" },
+            "DXB": { "lat": 25.2532, "lon": 55.3657, "name": "Dubai Intl" },
+            "HND": { "lat": 35.5494, "lon": 139.7798, "name": "Tokyo Haneda" },
+            "ORD": { "lat": 41.9742, "lon": -87.9073, "name": "O'Hare Intl" },
+            "LHR": { "lat": 51.4700, "lon": -0.4543, "name": "London Heathrow" },
+            "PVG": { "lat": 31.1443, "lon": 121.8083, "name": "Shanghai Pudong Intl" },
+            "CDG": { "lat": 49.0097, "lon": 2.5479, "name": "Charles de Gaulle" },
+            "DFW": { "lat": 32.8998, "lon": -97.0403, "name": "Dallas/Fort Worth Intl" },
+            "AMS": { "lat": 52.3105, "lon": 4.7683, "name": "Schiphol" },
+            "FRA": { "lat": 50.0379, "lon": 8.5622, "name": "Frankfurt" },
+            "IST": { "lat": 41.2751, "lon": 28.7519, "name": "Istanbul" },
+            "CAN": { "lat": 23.3959, "lon": 113.2988, "name": "Guangzhou Baiyun Intl" },
+            "JFK": { "lat": 40.6413, "lon": -73.7781, "name": "John F Kennedy Intl" },
+            "SIN": { "lat": 1.3644, "lon": 103.9915, "name": "Singapore Changi" },
+            "ICN": { "lat": 37.4602, "lon": 126.4407, "name": "Incheon Intl" },
+            "DEN": { "lat": 39.8561, "lon": -104.6737, "name": "Denver Intl" },
+            "BKK": { "lat": 13.6900, "lon": 100.7501, "name": "Suvarnabhumi" },
+            "SFO": { "lat": 37.6190, "lon": -122.3748, "name": "San Francisco Intl" },
+            "LAS": { "lat": 36.0840, "lon": -115.1537, "name": "McCarran Intl" },
+            "CLT": { "lat": 35.2140, "lon": -80.9431, "name": "Charlotte Douglas Intl" },
+            "MIA": { "lat": 25.7959, "lon": -80.2870, "name": "Miami Intl" },
+            "KUL": { "lat": 2.7456, "lon": 101.7099, "name": "Kuala Lumpur Intl" },
+            "SEA": { "lat": 47.4502, "lon": -122.3088, "name": "Seattle-Tacoma Intl" },
+            "MUC": { "lat": 48.3536, "lon": 11.7750, "name": "Munich" },
+            "EWR": { "lat": 40.6895, "lon": -74.1745, "name": "Newark Liberty Intl" },
+            "MAD": { "lat": 40.4839, "lon": -3.5679, "name": "Adolfo Suárez Madrid–Barajas" },
+            "HKG": { "lat": 22.3080, "lon": 113.9185, "name": "Hong Kong Intl" },
+            "MCO": { "lat": 28.4312, "lon": -81.3081, "name": "Orlando Intl" },
+            "PHX": { "lat": 33.4341, "lon": -112.0080, "name": "Phoenix Sky Harbor Intl" },
+            "IAH": { "lat": 29.9902, "lon": -95.3368, "name": "George Bush Intercontinental" },
+            "SYD": { "lat": -33.9399, "lon": 151.1753, "name": "Sydney Kingsford Smith" },
+            "MEL": { "lat": -37.6690, "lon": 144.8410, "name": "Melbourne" },
+            "GRU": { "lat": -23.4356, "lon": -46.4731, "name": "São Paulo/Guarulhos" },
+            "YYZ": { "lat": 43.6777, "lon": -79.6248, "name": "Toronto Pearson Intl" },
+            "BCN": { "lat": 41.2974, "lon": 2.0833, "name": "Barcelona–El Prat" },
+            "LGW": { "lat": 51.1537, "lon": -0.1821, "name": "London Gatwick" },
+            "NRT": { "lat": 35.7720, "lon": 140.3929, "name": "Narita Intl" },
+            "BOS": { "lat": 42.3656, "lon": -71.0096, "name": "Logan Intl" },
+            "SZN": { "lat": 22.6393, "lon": 113.8107, "name": "Shenzhen Bao'an Intl" },
+            "TPE": { "lat": 25.0797, "lon": 121.2342, "name": "Taoyuan Intl" },
+            "MEX": { "lat": 19.4363, "lon": -99.0721, "name": "Mexico City Intl" },
+            "KIX": { "lat": 34.4320, "lon": 135.2304, "name": "Kansai Intl" },
+            "DOH": { "lat": 25.2611, "lon": 51.6138, "name": "Hamad Intl" },
+            "JNB": { "lat": -26.1367, "lon": 28.2411, "name": "O. R. Tambo Intl" },
+            "AKL": { "lat": -37.0082, "lon": 174.7850, "name": "Auckland" },
+            "YVR": { "lat": 49.1947, "lon": -123.1792, "name": "Vancouver Intl" },
+            "BOM": { "lat": 19.0896, "lon": 72.8656, "name": "Chhatrapati Shivaji Maharaj Intl" },
+            "DEL": { "lat": 28.5562, "lon": 77.1000, "name": "Indira Gandhi Intl" },
+            "ZRH": { "lat": 47.4582, "lon": 8.5555, "name": "Zurich" },
+            "CPH": { "lat": 55.6180, "lon": 12.6508, "name": "Copenhagen" },
+            "OSL": { "lat": 60.1975, "lon": 11.1004, "name": "Oslo" },
+            "ARN": { "lat": 59.6498, "lon": 17.9238, "name": "Stockholm Arlanda" },
+            "VIE": { "lat": 48.1103, "lon": 16.5697, "name": "Vienna Intl" },
+            "BRU": { "lat": 50.9014, "lon": 4.4844, "name": "Brussels" },
+            "DUB": { "lat": 53.4264, "lon": -6.2499, "name": "Dublin" },
+            "FCO": { "lat": 41.8003, "lon": 12.2389, "name": "Leonardo da Vinci–Fiumicino" },
+            "MXP": { "lat": 45.6301, "lon": 8.7231, "name": "Malpensa" },
+            "LIS": { "lat": 38.7756, "lon": -9.1354, "name": "Humberto Delgado" },
+            "ATH": { "lat": 37.9364, "lon": 23.9445, "name": "Athens Intl" },
+        };
+
+        const toRad = (value) => (value * Math.PI) / 180;
+
+        const calculateHaversine = (lat1, lon1, lat2, lon2, unit = 'NM') => {
+            const R_KM = 6371;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const dKm = R_KM * c;
+
+            if (unit === 'KM') return dKm;
+            if (unit === 'MI') return dKm * 0.621371;
+            if (unit === 'NM') return dKm * 0.539957;
+            return dKm;
+        };
+
+        const Navigation = ({ activeTab, setActiveTab }) => (
+            <nav className="flex space-x-4 border-b border-gray-200 mb-6">
+                <button
+                    onClick={() => setActiveTab('interactive')}
+                    className={`py-2 px-4 font-medium text-sm focus:outline-none transition-colors ${
+                        activeTab === 'interactive'
+                        ? 'border-b-2 border-blue-600 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    Multi-Leg Trip
+                </button>
+                <button
+                    onClick={() => setActiveTab('bulk')}
+                    className={`py-2 px-4 font-medium text-sm focus:outline-none transition-colors ${
+                        activeTab === 'bulk'
+                        ? 'border-b-2 border-blue-600 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    Bulk Processing
+                </button>
+            </nav>
+        );
+
+        const UnitSelector = ({ unit, setUnit }) => (
+            <div className="flex items-center space-x-2 text-sm">
+                <span className="text-gray-600 font-medium">Units:</span>
+                <select
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    className="bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="NM">Nautical Miles (NM)</option>
+                    <option value="KM">Kilometers (KM)</option>
+                    <option value="MI">Statute Miles (MI)</option>
+                </select>
+            </div>
+        );
+
+        const ResultCard = ({ result, unit }) => {
+            if (!result) return null;
+            return (
+                <div className="mt-6 bg-white border rounded-lg shadow-sm overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                        <h3 className="font-semibold text-gray-800">Trip Summary</h3>
+                        <span className="text-sm bg-blue-100 text-blue-800 py-1 px-3 rounded-full font-medium">
+                            Total: {result.totalDistance.toFixed(2)} {unit}
+                        </span>
+                    </div>
+                    <div className="p-0 overflow-x-auto">
+                        <table className="min-w-full text-sm text-left">
+                            <thead className="bg-gray-50 text-gray-500 font-medium">
+                                <tr>
+                                    <th className="px-4 py-2">Leg</th>
+                                    <th className="px-4 py-2">From</th>
+                                    <th className="px-4 py-2">To</th>
+                                    <th className="px-4 py-2 text-right">Distance ({unit})</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {result.legs.map((leg, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="px-4 py-2 text-gray-500">#{idx + 1}</td>
+                                        <td className="px-4 py-2 font-medium text-gray-800">{leg.from}</td>
+                                        <td className="px-4 py-2 font-medium text-gray-800">{leg.to}</td>
+                                        <td className="px-4 py-2 text-right text-gray-600">{leg.distance.toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        const InteractiveCalculator = ({ unit, airportDb }) => {
+            const [stops, setStops] = useState(['', '']);
+            const [error, setError] = useState(null);
+
+            const handleStopChange = (index, value) => {
+                const newStops = [...stops];
+                newStops[index] = value.toUpperCase().trim();
+                setStops(newStops);
+                setError(null);
+            };
+
+            const addStop = () => setStops([...stops, '']);
+            const removeStop = (index) => {
+                if (stops.length <= 2) return;
+                const newStops = stops.filter((_, i) => i !== index);
+                setStops(newStops);
+            };
+
+            const result = useMemo(() => {
+                if (stops.some(s => s.length !== 3)) return null;
+
+                let totalDist = 0;
+                let legs = [];
+                let hasError = false;
+
+                for (let i = 0; i < stops.length - 1; i++) {
+                    const from = stops[i];
+                    const to = stops[i + 1];
+                    if (!from || !to) continue;
+
+                    const apt1 = airportDb[from];
+                    const apt2 = airportDb[to];
+
+                    if (!apt1 || !apt2) continue;
+
+                    const dist = calculateHaversine(apt1.lat, apt1.lon, apt2.lat, apt2.lon, unit);
+                    totalDist += dist;
+                    legs.push({ from, to, distance: dist });
+                }
+
+                if (legs.length === 0) return null;
+                return { totalDistance: totalDist, legs };
+            }, [stops, unit, airportDb]);
+
+            const validateAndShowErrors = () => {
+                const invalidCodes = stops.filter(s => s.length === 3 && !airportDb[s]);
+                if (invalidCodes.length > 0) {
+                    return (
+                        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded text-sm border border-red-200">
+                            <strong>Unknown Airport Codes:</strong> {invalidCodes.join(', ')}. 
+                            <br/>
+                            <span className="text-xs text-red-500">
+                                {Object.keys(airportDb).length > 200 ? "Code not found in loaded database." : "Note: Default DB only has top ~60 airports."}
+                            </span>
+                        </div>
+                    )
+                }
+                return null;
+            }
+
+            return (
+                <div className="space-y-4">
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4">
+                        <p className="text-sm text-blue-800">
+                            Enter IATA codes (e.g., JFK, LHR, DXB) to build a route. 
+                        </p>
+                    </div>
+
+                    {validateAndShowErrors()}
+
+                    <div className="space-y-3">
+                        {stops.map((stop, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                                <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 text-xs font-bold">
+                                    {index === 0 ? 'DEP' : index === stops.length - 1 ? 'ARR' : `WP${index}`}
+                                </div>
+                                <div className="flex-1 relative">
+                                    <input
+                                        type="text"
+                                        value={stop}
+                                        onChange={(e) => handleStopChange(index, e.target.value)}
+                                        placeholder="IATA Code"
+                                        className={`w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono ${
+                                            stop.length === 3 && !airportDb[stop] ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                                        }`}
+                                        maxLength={3}
+                                    />
+                                    {stop.length === 3 && airportDb[stop] && (
+                                        <div className="absolute right-2 top-2 text-xs text-green-600 pointer-events-none font-medium truncate max-w-[200px]">
+                                            {airportDb[stop].name}
+                                        </div>
+                                    )}
+                                </div>
+                                {stops.length > 2 && (
+                                    <button
+                                        onClick={() => removeStop(index)}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="pt-2">
+                        <button
+                            onClick={addStop}
+                            className="text-sm text-blue-600 font-medium hover:text-blue-800 flex items-center"
+                        >
+                            <span className="text-lg mr-1">+</span> Add Stop
+                        </button>
+                    </div>
+
+                    <ResultCard result={result} unit={unit} />
+                </div>
+            );
+        };
+
+        const BulkCalculator = ({ unit, airportDb }) => {
+            const [input, setInput] = useState('JFK LHR\nSFO NRT\nLAX DXB SYD');
+            const [results, setResults] = useState([]);
+
+            const processBulk = () => {
+                const lines = input.split('\n').filter(l => l.trim().length > 0);
+                const processed = lines.map((line, idx) => {
+                    // Safe split for airports - splits on anything that is NOT a number or letter
+                    // This handles spaces, commas, arrows (->), dashes, etc. safely.
+                    const codes = line.split(/[^a-zA-Z0-9]+/).map(c => c.trim().toUpperCase()).filter(c => c.length === 3);
+                    
+                    if (codes.length < 2) return { id: idx, line, error: "Need at least 2 codes", total: 0 };
+
+                    let totalDist = 0;
+                    let legDetails = [];
+                    let error = null;
+
+                    for (let i = 0; i < codes.length - 1; i++) {
+                        const c1 = codes[i];
+                        const c2 = codes[i+1];
+                        
+                        if (airportDb[c1] && airportDb[c2]) {
+                            const apt1 = airportDb[c1];
+                            const apt2 = airportDb[c2];
+                            const d = calculateHaversine(apt1.lat, apt1.lon, apt2.lat, apt2.lon, unit);
+                            totalDist += d;
+                            legDetails.push(`${c1}-${c2} (${d.toFixed(0)})`);
+                        } else {
+                            error = `Unknown code: ${!airportDb[c1] ? c1 : c2}`;
+                        }
+                    }
+
+                    return {
+                        id: idx,
+                        route: codes.join(' → '),
+                        total: totalDist,
+                        details: legDetails.join(', '),
+                        error
+                    };
+                });
+                setResults(processed);
+            };
+
+            const downloadCSV = () => {
+                const header = `Route,Total Distance (${unit}),Details,Error\n`;
+                const rows = results.map(r => `"${r.route}","${r.total.toFixed(2)}","${r.details}","${r.error || ''}"`).join('\n');
+                const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(header + rows);
+                const link = document.createElement("a");
+                link.setAttribute("href", csvContent);
+                link.setAttribute("download", "flight_distances.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            return (
+                <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 border border-gray-200">
+                        <p>Paste routes below. One trip per line.</p>
+                    </div>
+
+                    <textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        className="w-full h-32 p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 font-mono text-sm uppercase"
+                        placeholder="Enter routes here..."
+                    />
+
+                    <div className="flex space-x-3">
+                        <button
+                            onClick={processBulk}
+                            className="bg-blue-600 text-white px-4 py-2 rounded shadow-sm hover:bg-blue-700 transition-colors font-medium text-sm"
+                        >
+                            Calculate All
+                        </button>
+                        {results.length > 0 && (
+                            <button
+                                onClick={downloadCSV}
+                                className="bg-green-600 text-white px-4 py-2 rounded shadow-sm hover:bg-green-700 transition-colors font-medium text-sm flex items-center"
+                            >
+                                Download CSV
+                            </button>
+                        )}
+                    </div>
+
+                    {results.length > 0 && (
+                        <div className="border rounded-lg overflow-hidden mt-6 shadow-sm">
+                            <table className="min-w-full text-sm text-left">
+                                <thead className="bg-gray-100 text-gray-600 font-semibold border-b">
+                                    <tr>
+                                        <th className="px-4 py-3">Route</th>
+                                        <th className="px-4 py-3 text-right">Total ({unit})</th>
+                                        <th className="px-4 py-3 w-1/3">Leg Breakdown</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                    {results.map((r) => (
+                                        <tr key={r.id} className={r.error ? "bg-red-50" : "hover:bg-gray-50"}>
+                                            <td className="px-4 py-2 font-medium">
+                                                {r.route}
+                                                {r.error && <span className="block text-xs text-red-600 mt-1">{r.error}</span>}
+                                            </td>
+                                            <td className="px-4 py-2 text-right font-mono text-gray-700">
+                                                {r.total > 0 ? r.total.toFixed(1) : '-'}
+                                            </td>
+                                            <td className="px-4 py-2 text-xs text-gray-500 truncate max-w-xs" title={r.details}>
+                                                {r.details}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('interactive');
+            const [unit, setUnit] = useState('NM');
+            const [airportDb, setAirportDb] = useState(DEFAULT_AIRPORT_DB);
+            const [dbStatus, setDbStatus] = useState({ type: 'default', count: Object.keys(DEFAULT_AIRPORT_DB).length });
+            const fileInputRef = useRef(null);
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const text = event.target.result;
+                    try {
+                        const parsedDb = parseCSV(text);
+                        if (Object.keys(parsedDb).length > 0) {
+                            setAirportDb(parsedDb);
+                            setDbStatus({ type: 'custom', count: Object.keys(parsedDb).length, filename: file.name });
+                        } else {
+                            alert("Could not find valid airports. Ensure columns: iata_code, latitude_deg, longitude_deg");
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert("Error parsing CSV file.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            const parseCSV = (csvText) => {
+                const lines = csvText.split(/\r?\n/);
+                if (lines.length < 2) return {};
+
+                const header = lines[0].toLowerCase().split(',').map(h => h.trim());
+                
+                const iataIdx = header.findIndex(h => h === 'iata_code' || h === 'iata' || h === 'code');
+                const latIdx = header.findIndex(h => h.includes('latitude') || h === 'lat');
+                const lonIdx = header.findIndex(h => h.includes('longitude') || h === 'lon' || h === 'lng');
+                const nameIdx = header.findIndex(h => h === 'name' || h === 'airport');
+
+                if (iataIdx === -1 || latIdx === -1 || lonIdx === -1) {
+                    throw new Error("Missing required columns");
+                }
+
+                const newDb = {};
+                for (let i = 1; i < lines.length; i++) {
+                    const matches = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+                    const columns = matches || lines[i].split(',');
+                    if (!columns || columns.length < 3) continue;
+
+                    const iata = columns[iataIdx];
+                    const lat = parseFloat(columns[latIdx]);
+                    const lon = parseFloat(columns[lonIdx]);
+                    const name = nameIdx !== -1 ? columns[nameIdx] : 'Unknown Airport';
+
+                    if (iata && iata.length === 3 && !isNaN(lat) && !isNaN(lon)) {
+                        newDb[iata.toUpperCase()] = { lat, lon, name: name ? name.replace(/"/g, '') : '' };
+                    }
+                }
+                return newDb;
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden my-8">
+                    <div className="bg-slate-800 text-white p-6">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h1 className="text-xl font-bold tracking-wide flex items-center">
+                                    <span className="mr-2">✈️</span> Flight Distance Calculator
+                                </h1>
+                                <p className="text-slate-400 text-xs mt-1">SharePoint Compatible Tool</p>
+                            </div>
+                            
+                            <div className="text-right">
+                                <div className="bg-slate-700 rounded p-2 inline-block text-left">
+                                    <div className="text-xs text-slate-400 mb-1">
+                                        Database: <span className={dbStatus.type === 'custom' ? "text-green-400 font-bold" : "text-white"}>
+                                            {dbStatus.type === 'default' ? 'Demo (Top 60)' : 'Custom File'}
+                                        </span>
+                                    </div>
+                                    <div className="text-lg font-mono font-bold leading-none">
+                                        {dbStatus.count} <span className="text-xs font-sans font-normal text-slate-400">Airports</span>
+                                    </div>
+                                </div>
+                                <div className="mt-2">
+                                    <input 
+                                        type="file" 
+                                        accept=".csv"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        onChange={handleFileUpload}
+                                    />
+                                    <button 
+                                        onClick={() => fileInputRef.current.click()}
+                                        className="text-xs bg-blue-600 hover:bg-blue-500 text-white py-1 px-3 rounded transition-colors flex items-center ml-auto"
+                                    >
+                                        Upload CSV
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-6">
+                        <div className="flex justify-between items-end mb-2">
+                            <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <div className="mb-6">
+                                <UnitSelector unit={unit} setUnit={setUnit} />
+                            </div>
+                        </div>
+
+                        <div className="mt-2">
+                            {activeTab === 'interactive' ? (
+                                <InteractiveCalculator unit={unit} airportDb={airportDb} />
+                            ) : (
+                                <BulkCalculator unit={unit} airportDb={airportDb} />
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 text-center text-xs text-gray-400">
+                        Calculations based on Great Circle Distance (Haversine formula).
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
